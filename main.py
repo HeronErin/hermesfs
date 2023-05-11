@@ -11,8 +11,10 @@ from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Random import get_random_bytes
 
-
-from src import fuser
+try:
+	from src import fuser
+except FileNotFoundError:
+	print("data/backupAccount not found")
 
 
 def runner(account):
@@ -67,9 +69,18 @@ if __name__ == "__main__":
 
 		elif sys.argv[1] == "init":
 			os.mkdir("data")
+			os.mkdir("img_mount_point")
+
+			
 			os.system("openssl rand 32 > data/key.key")
+			os.system("openssl rand 32 > data/key2.key")
 			os.system("openssl rand 24 > data/nonce.dat")
+			os.system("cd data ; openssl genrsa -out privatekey.pem 2048 ; openssl rsa -in privatekey.pem -pubout -out publickey.crt")
+			os.system("python main.py sec data/privatekey.pem ; rm data/privatekey.pem")
 			os.system("echo [0] > data/fs.json")
+			os.system("echo INSERT ACCOUNT HERE >  data/backupAccount")
+
+
 		elif sys.argv[1] == "sec":
 			if len(sys.argv) == 3:
 				import getpass
