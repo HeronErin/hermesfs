@@ -1,0 +1,6 @@
+node_modules/
+.Trash*
+img_mount_point/*
+lost+found/
+data/*
+accounts

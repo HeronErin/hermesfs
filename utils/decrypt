@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA256
+import sys
+import os
+
+if __name__ == "__main__":
+	doArk = False if sys.argv[-1] != "ark" else True
+
+	inp =sys.stdin.buffer
+	if inp.isatty():
+		print("Please pipe data to me. Ex: cat file | decrypt > file.json")
+	else:
+
+
+		# Get encrypted private key and decrypt it
+		data = open(os.path.join(os.path.dirname(__file__),"backup_privatekey.pem.enc"), "rb").read()
+
+		import getpass
+		password = getpass.getpass()
+
+		key = SHA256.new(password.encode("utf-8")).digest()  # use SHA-256 over our key to get a proper-sized AES key
+		IV = data[:AES.block_size]  # extract the IV from the beginning
+		decryptor = AES.new(key, AES.MODE_CBC, IV)
+		data = decryptor.decrypt(data[AES.block_size:])  # decrypt
+		padding = data[-1]  # pick the padding value from the end; Python 2.x: ord(data[-1])
+		if data[-padding:] != bytes([padding]) * padding:  # Python 2.x: chr(padding) * padding
+			raise ValueError("Invalid padding...")
+
+
+		# Decrypt Backup file with it
+		private_key = RSA.import_key(data[:-padding])
+
+		enc_session_key, nonce, tag, ciphertext = \
+		   [ inp.read(x) for x in (private_key.size_in_bytes(), 16, 16, -1) ]
+
+
+		# Decrypt the session key with the private RSA key
+		cipher_rsa = PKCS1_OAEP.new(private_key)
+		session_key = cipher_rsa.decrypt(enc_session_key)
+
+		# Decrypt the data with the AES session key
+		cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
+
+		if not doArk:
+			sys.stdout.buffer.write(cipher_aes.decrypt_and_verify(ciphertext, tag))
+		else:
+			f = open("/tmp/dec.tar.gz", "wb")
+			f.write(cipher_aes.decrypt_and_verify(ciphertext, tag))
+			f.close()
+			os.system("ark /tmp/dec.tar.gz && rm /tmp/dec.tar.gz")
+
+
+
+
